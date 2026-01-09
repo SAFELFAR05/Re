@@ -11,9 +11,13 @@ export default function handler(req, res) {
     ? filename.replace(/[^\w\d.-]+/g, "_")
     : "video.mp4"
 
-  res.setHeader("Content-Disposition", `attachment; filename="${name}"`)
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${name}"`
+  )
   res.setHeader("Cache-Control", "no-store")
+  res.setHeader("Referrer-Policy", "no-referrer")
 
-  // 🔥 PENTING: redirect, BUKAN fetch
-  return res.redirect(302, u)
+  // 🔥 INI KUNCINYA
+  return res.redirect(307, u)
 }
