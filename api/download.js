@@ -1,23 +1,36 @@
-export default function handler(req, res) {
-  let { u, filename } = req.query
+const fetch = require('node-fetch');
 
-  if (!u) {
-    return res.status(400).json({ error: "Missing url" })
+module.exports = async (req, res) => {
+  // Ambil URL dari parameter 'link' atau 'url'
+  const url = req.query.link || req.query.url;
+  const filename = req.query.filename || 'video.mp4';
+
+  if (!url) {
+    return res.status(400).send("URL/Link is required");
   }
 
-  u = decodeURIComponent(u).trim()
+  try {
+    // Ambil data dari link sumber
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
 
-  const name = filename
-    ? filename.replace(/[^\w\d.-]+/g, "_")
-    : "video.mp4"
+    if (!response.ok) {
+      throw new Error(`Failed to fetch: ${response.statusText}`);
+    }
 
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${name}"`
-  )
-  res.setHeader("Cache-Control", "no-store")
-  res.setHeader("Referrer-Policy", "no-referrer")
+    // Set header agar browser otomatis download
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
 
-  // 🔥 INI KUNCINYA
-  return res.redirect(307, u)
-}
+    // Alirkan data langsung ke user (streaming)
+    response.body.pipe(res);
+
+  } catch (error) {
+    console.error('Proxy Error:', error);
+    res.status(500).send("Failed to download file");
+  }
+};
+
