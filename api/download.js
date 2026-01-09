@@ -1,42 +1,19 @@
-export default async function handler(req, res) {
-  const { u, filename } = req.query
+export default function handler(req, res) {
+  let { u, filename } = req.query
 
   if (!u) {
-    return res.status(400).send("Missing media url")
+    return res.status(400).json({ error: "Missing url" })
   }
 
-  try {
-    const response = await fetch(u, {
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
-    })
+  u = decodeURIComponent(u).trim()
 
-    if (!response.ok || !response.body) {
-      return res.status(410).send("Media expired")
-    }
+  const name = filename
+    ? filename.replace(/[^\w\d.-]+/g, "_")
+    : "video.mp4"
 
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${filename || "video.mp4"}"`
-    )
-    res.setHeader(
-      "Content-Type",
-      response.headers.get("content-type") || "application/octet-stream"
-    )
-    res.setHeader("Cache-Control", "no-store")
+  res.setHeader("Content-Disposition", `attachment; filename="${name}"`)
+  res.setHeader("Cache-Control", "no-store")
 
-    const reader = response.body.getReader()
-    res.status(200)
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      res.write(Buffer.from(value))
-    }
-
-    res.end()
-  } catch (err) {
-    res.status(500).send("Download failed")
-  }
+  // 🔥 PENTING: redirect, BUKAN fetch
+  return res.redirect(302, u)
 }
