@@ -1,38 +1,38 @@
-const fetch = require('node-fetch');
+export default async function handler(req, res) {
+  // ===== CORS FULL BEBAS =====
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
 
-module.exports = async (req, res) => {
-  // Support 'url', 'link', and 'u' parameters
-  // Handle cases where the URL might have multiple question marks or query params
-  const fullUrl = req.url;
-  const urlMatch = fullUrl.match(/[?&](?:u|link|url)=(https?:\/\/.*)/i);
-  const url = urlMatch ? decodeURIComponent(urlMatch[1]) : (req.query.link || req.query.url || req.query.u);
-  const filename = req.query.filename || 'video.mp4';
-
-  if (!url) {
-    return res.status(400).send("URL/Link is required");
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
   }
 
   try {
-    // Ambil data dari link sumber
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
+    const { prompt, logic } = req.query;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.statusText}`);
+    if (!prompt) {
+      return res.status(400).json({
+        error: "prompt is required"
+      });
     }
 
-    // Set header agar browser otomatis download
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+    const API_KEY = process.env.FERDEV_API_KEY;
 
-    // Alirkan data langsung ke user (streaming)
-    response.body.pipe(res);
+    const targetUrl = new URL("https://api.ferdev.my.id/ai/gptlogic");
+    targetUrl.searchParams.append("prompt", prompt);
+    if (logic) targetUrl.searchParams.append("logic", logic);
+    targetUrl.searchParams.append("apikey", API_KEY);
 
-  } catch (error) {
-    console.error('Proxy Error:', error);
-    res.status(500).send("Failed to download file");
+    const response = await fetch(targetUrl.toString());
+    const data = await response.json();
+
+    res.status(200).json(data);
+
+  } catch (err) {
+    res.status(500).json({
+      error: "Proxy error",
+      message: err.message
+    });
   }
-};
+}
