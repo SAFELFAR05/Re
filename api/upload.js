@@ -1,3 +1,8 @@
+import axios from "axios";
+import FormData from "form-data";
+import formidable from "formidable";
+import fs from "fs";
+
 export const config = {
   api: {
     bodyParser: false
@@ -5,55 +10,61 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-
-  // 🔓 OPEN CORS FULL (SEMUA DIBOLEHKAN)
+  // Open CORS full (debug)
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "*");
 
-  // Handle preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  // Allow POST only
   if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      message: "Method not allowed"
-    });
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
-    const response = await fetch(
+    // 1️⃣ Parse multipart dari browser
+    const form = formidable({ multiples: false });
+    const { files } = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve({ files });
+      });
+    });
+
+    const file = files.file;
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: "File tidak ditemukan di proxy"
+      });
+    }
+
+    // 2️⃣ Buat ulang FormData (SAMA PERSIS DOKUMENTASI)
+    const formData = new FormData();
+    formData.append("file", fs.createReadStream(file.filepath));
+
+    // 3️⃣ Kirim ke API ferdev
+    const response = await axios.post(
       "https://api.ferdev.my.id/remote/elfar",
+      formData,
       {
-        method: "POST",
         headers: {
+          ...formData.getHeaders(),
           Authorization: "Bearer key-elfs"
         },
-        body: req,       // stream langsung
-        duplex: "half"   // 🔥 WAJIB (Node/Vercel)
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
       }
     );
 
-    const contentType = response.headers.get("content-type") || "";
-
-    // Teruskan JSON mentah
-    if (contentType.includes("application/json")) {
-      const json = await response.json();
-      return res.status(response.status).json(json);
-    }
-
-    // Fallback text
-    const text = await response.text();
-    return res.status(response.status).send(text);
+    return res.status(200).json(response.data);
 
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: "Proxy failed",
-      message: err.message
+      error: err.message
     });
   }
 }
