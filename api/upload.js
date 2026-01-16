@@ -5,12 +5,12 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // 🔹 CORS HEADERS
+  // 🔓 OPEN CORS (DEV ONLY)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "*");
 
-  // 🔹 PRE-FLIGHT
+  // 🟡 Preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ⬇️ FORWARD REQUEST BODY LANGSUNG
+    // ⬇️ Forward body apa adanya
     const apiRes = await fetch(
       "https://api.ferdev.my.id/remote/elfar",
       {
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     res.status(apiRes.status).send(text);
   } catch (err) {
     res.status(500).json({
-      error: "Proxy upload failed",
+      error: "Proxy failed",
       message: err.message
     });
   }
