@@ -5,38 +5,40 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // 🔓 OPEN CORS (DEV ONLY)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "*");
-
-  // 🟡 Preflight
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
+  // Allow only POST
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({
+      success: false,
+      message: "Method not allowed"
+    });
   }
 
   try {
-    // ⬇️ Forward body apa adanya
-    const apiRes = await fetch(
-      "https://api.ferdev.my.id/remote/elfar",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.API_KEY}`
-        },
-        body: req
-      }
-    );
+    // Proxy request ke API asli
+    const response = await fetch("https://api.ferdev.my.id/remote/elfar", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer key-elfs"
+      },
+      body: req,          // stream langsung
+      duplex: "half"      // 🔥 WAJIB di Node/Vercel
+    });
 
-    const text = await apiRes.text();
+    const contentType = response.headers.get("content-type") || "";
 
-    res.status(apiRes.status).send(text);
+    // Jika JSON → teruskan JSON
+    if (contentType.includes("application/json")) {
+      const json = await response.json();
+      return res.status(response.status).json(json);
+    }
+
+    // Fallback (text / error HTML)
+    const text = await response.text();
+    return res.status(response.status).send(text);
+
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
       error: "Proxy failed",
       message: err.message
     });
